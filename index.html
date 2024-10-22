@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rivalz Dashboard</title>
+  <title>Rivalz Dashboard Multi</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .spinner {
@@ -26,7 +26,7 @@
 <body class="bg-black text-white font-mono">
 
   <div class="min-h-screen flex flex-col items-center">
-    <h1 class="text-center text-4xl font-bold mt-6">Rivalz Dashboard</h1>
+    <h1 class="text-center text-4xl font-bold mt-6">Rivalz Dashboard Multi</h1>
     <span class="text-center text-bold text-gray-400 text-md mb-6">v1.0</span>
 
     <!-- Input form -->
@@ -42,19 +42,22 @@
       </div>
     </div>
 
-    <!-- Dashboard Blocks -->
-    <div class="flex space-x-6 mb-6" id="dashboard">
-      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
-        <p class="text-2xl font-bold" id="totalNode">0</p>
-        <p class="text-sm">Total Nodes</p>
-      </div>
-      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
-        <p class="text-2xl font-bold" id="nodeActive">0</p>
-        <p class="text-sm">Active Nodes</p>
-      </div>
-      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
-        <p class="text-2xl font-bold" id="lastPing">-</p>
-        <p class="text-sm">Max Last Ping Date</p>
+    <!-- Data Table -->
+    <div class="w-full max-w-4xl">
+      <div id="result" class="hidden bg-gray-900 p-6 rounded-lg shadow-lg">
+        <div class="overflow-x-auto">
+          <table class="w-full table-auto bg-gray-800 rounded-lg shadow-lg text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="py-3 px-4">Wallet Address</th>
+                <th class="py-3 px-4">Total Nodes</th>
+                <th class="py-3 px-4">Active Nodes</th>
+                <th class="py-3 px-4">Max Last Ping</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -64,12 +67,12 @@
       const walletAddresses = document.getElementById('walletAddresses').value.split('\n').map(addr => addr.trim()).filter(Boolean);
       const fetchText = document.getElementById('fetchText');
       const spinner = document.getElementById('spinner');
+      const tableBody = document.getElementById('tableBody');
+      tableBody.innerHTML = ''; // Clear previous data
       fetchText.classList.add('hidden');
       spinner.classList.remove('hidden');
 
-      let totalNodes = 0;
-      let activeNodes = 0;
-      let maxLastPing = new Date(0); // Set to the earliest possible date
+      let allDataFetched = true;
 
       for (const walletAddress of walletAddresses) {
         const url = `https://be.rivalz.ai/api-v1/orbit-db/find-by-wallet-address/${walletAddress}/0/9999`;
@@ -79,29 +82,37 @@
           const data = await response.json();
 
           if (data.status === 200) {
-            totalNodes += data.data.totalNode;
-            activeNodes += data.data.nodeActive;
-
-            const walletLastPing = data.data.nodesV2Pagination.reduce((maxDate, node) => {
+            const totalNodes = data.data.totalNode;
+            const activeNodes = data.data.nodeActive;
+            const maxLastPing = data.data.nodesV2Pagination.reduce((maxDate, node) => {
               const nodeLastPing = new Date(node.lastPing);
               return nodeLastPing > maxDate ? nodeLastPing : maxDate;
-            }, new Date(0));
+            }, new Date(0)).toLocaleString();
 
-            if (walletLastPing > maxLastPing) {
-              maxLastPing = walletLastPing;
-            }
+            // Add data to the table
+            const row = `
+              <tr>
+                <td class="py-3 px-4">${walletAddress}</td>
+                <td class="py-3 px-4">${totalNodes}</td>
+                <td class="py-3 px-4">${activeNodes}</td>
+                <td class="py-3 px-4">${maxLastPing}</td>
+              </tr>
+            `;
+            tableBody.insertAdjacentHTML('beforeend', row);
+
           } else {
             alert(`Failed to fetch data for wallet: ${walletAddress}`);
+            allDataFetched = false;
           }
         } catch (error) {
           alert(`Error fetching data for wallet: ${walletAddress}`);
+          allDataFetched = false;
         }
       }
 
-      // Update the dashboard with aggregated results
-      document.getElementById('totalNode').textContent = totalNodes;
-      document.getElementById('nodeActive').textContent = activeNodes;
-      document.getElementById('lastPing').textContent = maxLastPing.toLocaleString();
+      if (allDataFetched) {
+        document.getElementById('result').classList.remove('hidden');
+      }
 
       fetchText.classList.remove('hidden');
       spinner.classList.add('hidden');
