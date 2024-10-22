@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rivalz Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid white;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-black text-white font-mono">
+
+  <div class="min-h-screen flex flex-col items-center">
+    <h1 class="text-center text-4xl font-bold mt-6">Rivalz Dashboard</h1>
+    <span class="text-center text-bold text-gray-400 text-md mb-6">v1.0</span>
+
+    <!-- Input form -->
+    <div class="w-full max-w-md mb-6">
+      <div class="bg-gray-900 p-6 rounded-lg shadow-lg">
+        <label for="walletAddresses" class="block text-sm font-medium mb-2">Enter Wallet Addresses (comma-separated)</label>
+        <input type="text" id="walletAddresses" placeholder="0x..., 0x..." class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-700 mb-4" />
+
+        <button id="fetchData" class="w-full bg-blue-600 hover:bg-blue-700 flex justify-center text-white font-bold py-3 rounded-lg">
+          <span id="fetchText">Load Nodes</span>
+          <span id="spinner" class="hidden spinner ml-2"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard Blocks -->
+    <div class="flex space-x-6 mb-6" id="dashboard">
+      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
+        <p class="text-2xl font-bold" id="totalNode">0</p>
+        <p class="text-sm">Total Nodes</p>
+      </div>
+      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
+        <p class="text-2xl font-bold" id="nodeActive">0</p>
+        <p class="text-sm">Active Nodes</p>
+      </div>
+      <div class="bg-gray-900 p-6 rounded-lg shadow-lg w-48 text-center">
+        <p class="text-2xl font-bold" id="lastPing">-</p>
+        <p class="text-sm">Max Last Ping Date</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('fetchData').addEventListener('click', async () => {
+      const walletAddresses = document.getElementById('walletAddresses').value.split(',').map(addr => addr.trim());
+      const fetchText = document.getElementById('fetchText');
+      const spinner = document.getElementById('spinner');
+      fetchText.classList.add('hidden');
+      spinner.classList.remove('hidden');
+
+      let totalNodes = 0;
+      let activeNodes = 0;
+      let maxLastPing = new Date(0); // Set to the earliest possible date
+
+      for (const walletAddress of walletAddresses) {
+        const url = `https://be.rivalz.ai/api-v1/orbit-db/find-by-wallet-address/${walletAddress}/0/9999`;
+
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.status === 200) {
+            totalNodes += data.data.totalNode;
+            activeNodes += data.data.nodeActive;
+
+            const walletLastPing = data.data.nodesV2Pagination.reduce((maxDate, node) => {
+              const nodeLastPing = new Date(node.lastPing);
+              return nodeLastPing > maxDate ? nodeLastPing : maxDate;
+            }, new Date(0));
+
+            if (walletLastPing > maxLastPing) {
+              maxLastPing = walletLastPing;
+            }
+          } else {
+            alert(`Failed to fetch data for wallet: ${walletAddress}`);
+          }
+        } catch (error) {
+          alert(`Error fetching data for wallet: ${walletAddress}`);
+        }
+      }
+
+      // Update the dashboard with aggregated results
+      document.getElementById('totalNode').textContent = totalNodes;
+      document.getElementById('nodeActive').textContent = activeNodes;
+      document.getElementById('lastPing').textContent = maxLastPing.toLocaleString();
+
+      fetchText.classList.remove('hidden');
+      spinner.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>
